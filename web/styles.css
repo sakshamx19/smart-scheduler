@@ -1,0 +1,705 @@
+/* The chat portal. One column of conversation and a dock at the bottom whose round button carries the voice state:
+   violet while listening, a turning arc while the agent works, teal while it speaks, amber while it waits for you. */
+
+:root {
+  --paper: #f6f7f9;
+  --surface: #ffffff;
+  --sunken: #eef0f4;
+  --ink: #171a21;
+  --slate: #596173;
+  --line: #e2e5eb;
+  --listen: #5b4be0;
+  --listen-soft: rgba(91, 75, 224, 0.14);
+  --speak: #0f8a7e;
+  --speak-soft: rgba(15, 138, 126, 0.14);
+  --wait: #9a6200;
+  --wait-soft: rgba(154, 98, 0, 0.12);
+  --bad: #b42335;
+  --bad-soft: rgba(180, 35, 53, 0.1);
+  --user: #2b2f3a;
+  --on-user: #ffffff;
+  --on-state: #ffffff;
+  --shadow: 0 1px 2px rgba(23, 26, 33, 0.06), 0 8px 24px rgba(23, 26, 33, 0.06);
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #11131a;
+    --surface: #191c25;
+    --sunken: #222632;
+    --ink: #e9eaf0;
+    --slate: #a2a8b8;
+    --line: #2c3040;
+    --listen: #9d92ff;
+    --listen-soft: rgba(157, 146, 255, 0.18);
+    --speak: #4cc7b8;
+    --speak-soft: rgba(76, 199, 184, 0.16);
+    --wait: #f0b54d;
+    --wait-soft: rgba(240, 181, 77, 0.14);
+    --bad: #ff8a96;
+    --bad-soft: rgba(255, 138, 150, 0.12);
+    --user: #e9eaf0;
+    --on-user: #11131a;
+    --on-state: #11131a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 15px/1.55 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+textarea,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--listen);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ------------------------------------------------------------------ frame */
+
+.app {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* without it, the one-line description sets the page width on a phone */
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+  height: 100dvh;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px max(16px, calc((100% - 760px) / 2));
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--listen-soft);
+  color: var(--listen);
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.mark::before {
+  content: attr(data-letter);
+}
+
+.who {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.about {
+  margin: 0;
+  color: var(--slate);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 7px 14px;
+  font-size: 14px;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--sunken);
+}
+
+.btn.primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.btn.primary:hover {
+  opacity: 0.9;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 16px 32px;
+}
+
+/* ------------------------------------------------------------------ empty state */
+
+.hello {
+  padding: 12vh 0 0;
+}
+
+.hello h2 {
+  margin: 0 0 6px;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.hello p {
+  margin: 0 0 20px;
+  max-width: 56ch;
+  color: var(--slate);
+  font-size: 17px;
+}
+
+.starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.starter {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.starter:hover {
+  border-color: var(--listen);
+}
+
+/* ------------------------------------------------------------------ messages */
+
+.msg {
+  max-width: 85%;
+  overflow-wrap: anywhere;
+}
+
+.msg.user {
+  align-self: flex-end;
+  background: var(--user);
+  color: var(--on-user);
+  padding: 9px 14px;
+  border-radius: 18px 18px 6px 18px;
+  white-space: pre-wrap;
+}
+
+.msg.agent {
+  align-self: flex-start;
+}
+
+.msg.agent > :first-child {
+  margin-top: 0;
+}
+
+.msg.agent > :last-child {
+  margin-bottom: 0;
+}
+
+.msg.agent p,
+.msg.agent ul,
+.msg.agent ol {
+  margin: 0 0 8px;
+}
+
+.msg.agent ul,
+.msg.agent ol {
+  padding-left: 22px;
+}
+
+.msg.agent code {
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--sunken);
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+
+.msg.agent pre {
+  overflow-x: auto;
+  background: var(--sunken);
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+
+.msg.agent a {
+  color: var(--listen);
+}
+
+.msg.agent.streaming::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 15px;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: var(--slate);
+  border-radius: 2px;
+  animation: blink 1s steps(2) infinite;
+}
+
+.thinking {
+  align-self: flex-start;
+  display: flex;
+  gap: 5px;
+  padding: 10px 2px;
+}
+
+.thinking i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--slate);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.thinking i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.thinking i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.latency {
+  align-self: flex-end;
+  margin-top: -8px;
+  color: var(--slate);
+  font-size: 12px;
+}
+
+.notice {
+  align-self: stretch;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--bad-soft);
+  color: var(--bad);
+  font-size: 14px;
+}
+
+/* ------------------------------------------------------------------ tool calls */
+
+.tool {
+  align-self: flex-start;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.tool summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--slate);
+}
+
+.tool summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool .tool-name {
+  font-family: var(--mono);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.tool .dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--slate);
+}
+
+.tool.running .dot {
+  background: var(--listen);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.tool.ok .dot {
+  background: var(--speak);
+}
+
+.tool.failed .dot {
+  background: var(--bad);
+}
+
+.tool.waiting .dot {
+  background: var(--wait);
+}
+
+.tool.declined .dot {
+  background: var(--line);
+}
+
+.tool pre {
+  margin: 0;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--line);
+  font: 12px/1.5 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+/* ------------------------------------------------------------------ approval: the moment of trust */
+
+.approval {
+  align-self: stretch;
+  border: 1px solid var(--wait);
+  background: var(--wait-soft);
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.approval h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--wait);
+}
+
+.approval .summary {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.approval details {
+  margin: 0 0 12px;
+  color: var(--slate);
+  font-size: 13px;
+}
+
+.approval details pre {
+  margin: 6px 0 0;
+  font: 12px/1.5 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.approval .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.approval.done {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+.approval.done h3 {
+  color: var(--slate);
+}
+
+/* ------------------------------------------------------------------ dock */
+
+.dock {
+  padding: 8px max(16px, calc((100% - 760px) / 2)) 12px;
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.caption {
+  min-height: 0;
+  color: var(--slate);
+  font-size: 15px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.caption:not(:empty) {
+  padding: 4px 4px 10px;
+}
+
+.caption .heard {
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1.3;
+}
+
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.composer:focus-within {
+  border-color: var(--listen);
+}
+
+.composer textarea {
+  flex: 1;
+  min-width: 0;
+  max-height: 160px;
+  padding: 9px 0;
+  border: 0;
+  background: transparent;
+  resize: none;
+  outline: none;
+  line-height: 1.45;
+}
+
+.send,
+.orb {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.send {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.send:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.orb {
+  position: relative;
+  background: var(--listen-soft);
+  color: var(--listen);
+}
+
+.orb .stop {
+  display: none;
+}
+
+.orb[aria-pressed="true"] .mic {
+  display: none;
+}
+
+.orb[aria-pressed="true"] .stop {
+  display: block;
+}
+
+.orb .ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  pointer-events: none;
+}
+
+.orb:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The ring follows the microphone level (--level, 0 to 1, set from script) while listening */
+.dock[data-voice="listening"] .orb {
+  background: var(--listen);
+  color: var(--on-state);
+}
+
+.dock[data-voice="listening"] .ring {
+  border-color: var(--listen);
+  transform: scale(calc(1 + var(--level, 0) * 0.35));
+  opacity: calc(0.35 + var(--level, 0));
+  transition: transform 80ms linear;
+}
+
+.dock[data-voice="thinking"] .ring {
+  border-color: var(--listen) transparent transparent transparent;
+  animation: turn 0.9s linear infinite;
+}
+
+.dock[data-voice="speaking"] .orb {
+  background: var(--speak);
+  color: var(--on-state);
+}
+
+.dock[data-voice="speaking"] .ring {
+  border-color: var(--speak-soft);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.dock[data-voice="waiting"] .orb {
+  background: var(--wait-soft);
+  color: var(--wait);
+}
+
+.fineprint {
+  margin: 6px 4px 0;
+  color: var(--slate);
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------------ access gate */
+
+.gate {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 22px;
+  width: min(92vw, 380px);
+  box-shadow: var(--shadow);
+}
+
+.gate::backdrop {
+  background: rgba(17, 19, 26, 0.45);
+}
+
+.gate h2 {
+  margin: 0 0 6px;
+  font-size: 19px;
+}
+
+.gate p {
+  margin: 0 0 14px;
+  color: var(--slate);
+}
+
+.gate input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  margin-bottom: 8px;
+}
+
+.gate .gate-error {
+  min-height: 1.2em;
+  color: var(--bad);
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------------ motion */
+
+@keyframes turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .msg {
+    max-width: 92%;
+  }
+
+  .hello {
+    padding-top: 6vh;
+  }
+
+  .hello h2 {
+    font-size: 24px;
+  }
+
+  .caption .heard {
+    font-size: 19px;
+  }
+}

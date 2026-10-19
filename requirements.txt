@@ -1,0 +1,18 @@
+# The agent
+langgraph==1.2.16
+langchain-core==1.6.12
+langchain-openai==1.7.2
+# langchain-anthropic==1.7.6   # to switch LLM_PROVIDER
+langgraph-checkpoint-sqlite==3.1.2
+google-auth==2.62.0
+requests>=2.31
+httpx>=0.27
+python-dotenv>=1.0
+tzdata>=2024.1  # time zones on Windows
+
+# The server
+fastapi>=0.115
+uvicorn[standard]>=0.30
+
+# Tests
+pytest>=8
